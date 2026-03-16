@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Night Shift Survival</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <div>
+      <div class="panel topbar">
+        <div>
+          <div class="eyebrow">Night Shift Survival</div>
+          <div class="title">Hold out until 6 AM</div>
+        </div>
+        <div class="clock">
+          <div class="eyebrow">Time</div>
+          <div class="time" id="clock">12 AM</div>
+        </div>
+      </div>
+
+      <div class="panel screen-box">
+        <div class="screen" id="screen"></div>
+      </div>
+
+      <div class="hud-grid">
+        <div class="panel card">
+          <div class="card-title">Power</div>
+          <div class="big" id="powerText">100%</div>
+          <div class="meter"><div id="powerBar"></div></div>
+          <div class="small" id="usageText">Usage: 1 bar</div>
+        </div>
+
+        <div class="panel card">
+          <div class="card-title">Doors</div>
+          <div class="row"><span>Left</span><span id="leftDoorState" class="muted">Open</span></div>
+          <div class="row"><span>Right</span><span id="rightDoorState" class="muted">Open</span></div>
+        </div>
+
+        <div class="panel card">
+          <div class="card-title">Status</div>
+          <div class="status-line" id="statusText">Shift started. Keep power usage under control.</div>
+          <div class="small" id="hintText">No immediate breach detected.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col">
+      <div class="panel card">
+        <div class="card-title">Controls</div>
+        <div class="btn-grid">
+          <button id="leftDoorBtn">Close Left</button>
+          <button id="rightDoorBtn">Close Right</button>
+          <button id="cameraBtn" class="blue-btn" style="grid-column:1 / span 2;">Raise Cameras</button>
+          <button id="restartBtn" class="ghost-btn" style="grid-column:1 / span 2;">Restart Shift</button>
+        </div>
+      </div>
+
+      <div class="panel card">
+        <div class="card-title">Camera Map</div>
+        <div class="cam-grid" id="camGrid"></div>
+        <div class="small">Cameras only work while the tablet is raised.</div>
+      </div>
+
+      <div class="panel card">
+        <div class="card-title">Threat Readout</div>
+        <div id="threatList"></div>
+        <div class="small">これは試作版なので敵位置を見えるようにしています。難化したいならここは消すべきです。</div>
+      </div>
+
+      <div id="endPanel" class="panel card" style="display:none;">
+        <div class="end-box">
+          <div class="end-title" id="endTitle"></div>
+          <div id="endDesc" class="small" style="margin-top:0;color:#d9d9d9;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
