@@ -20,6 +20,12 @@ const routes = {
   Grin: ['storage', 'office', 'hallL', 'hallR']
 };
 
+const enemyTraits = {
+  Rust: { doorDelay: 550, moveMultiplier: 0.72 },
+  Moth: { doorDelay: 900, aggroMax: 0.28 },
+  Grin: { doorDelay: 700 }
+};
+
 let state;
 let secondTimer = null;
 let moveTimer = null;
@@ -96,6 +102,7 @@ function createBaseState(gameState = 'title') {
     statusText: gameState === 'playing'
       ? 'Shift started. Keep power usage under control.'
       : 'Review the rules, then start the shift.',
+    mothAggro: 0,
     gameState,
     tick: 0,
   };
@@ -116,12 +123,7 @@ function resetGame() {
 }
 
 function showMenu(screenName) {
-  if (!state || state.gameState === 'playing') {
-    state = createBaseState(screenName);
-  } else {
-    state.gameState = screenName;
-    state.statusText = 'Review the rules, then start the shift.';
-  }
+  state = createBaseState(screenName);
 
   clearInterval(secondTimer);
   clearInterval(moveTimer);
@@ -148,10 +150,47 @@ function rightAtDoor() {
   return state.positions.Moth === 'hallR' || state.positions.Grin === 'hallR';
 }
 
+function getDoorAttackers(side) {
+  if (side === 'left') {
+    return Object.entries(state.positions)
+      .filter(([, pos]) => pos === 'hallL')
+      .map(([name]) => name);
+  }
+
+  return Object.entries(state.positions)
+    .filter(([, pos]) => pos === 'hallR')
+    .map(([name]) => name);
+}
+
+function isOutageThreat() {
+  return Object.values(state.positions).some((pos) => ['office', 'hallL', 'hallR'].includes(pos));
+}
+
+function getBreachDelay(side) {
+  const attackers = getDoorAttackers(side);
+  if (attackers.length === 0) return null;
+  return Math.min(...attackers.map((name) => enemyTraits[name].doorDelay));
+}
+
+function getMoveChance(name, current) {
+  if (name === 'Rust') {
+    const multiplier = current === 'hallL' ? 1 : enemyTraits.Rust.moveMultiplier;
+    return clamp(state.aiLevels.Rust * multiplier, 0.05, 0.92);
+  }
+
+  if (name === 'Moth') {
+    const cameraPressure = state.cameraOpen ? 0.06 : 0;
+    return clamp(state.aiLevels.Moth + state.mothAggro + cameraPressure, 0.15, 0.9);
+  }
+
+  return clamp(state.aiLevels.Grin, 0.1, 0.94);
+}
+
 function getHint() {
   if (state.gameState === 'title') return 'Press START when you are ready.';
   if (state.gameState === 'howto') return 'Read the rules, then begin the shift.';
   if (state.power <= 15) return 'Power critical. Stop wasting energy.';
+  if (state.mothAggro >= 0.18) return 'Moth reacts to frequent camera use.';
   if (leftAtDoor() && !state.leftDoorClosed) return 'Left corridor danger.';
   if (rightAtDoor() && !state.rightDoorClosed) return 'Right corridor danger.';
   if (state.cameraOpen) return 'Cameras drain power. Use them deliberately.';
@@ -189,7 +228,7 @@ function scheduleThreatCheck() {
   if (state.gameState !== 'playing') return;
 
   if (state.power <= 0) {
-    if (Object.values(state.positions).includes('office')) {
+    if (isOutageThreat()) {
       lossTimeout = setTimeout(() => {
         lose('Something moved in the dark.', 'A power outage left the office exposed.');
       }, 2200);
@@ -198,16 +237,18 @@ function scheduleThreatCheck() {
   }
 
   if (leftAtDoor() && !state.leftDoorClosed) {
+    const delay = getBreachDelay('left');
     lossTimeout = setTimeout(() => {
       lose('The left side was left open.', 'An enemy reached the left entrance while it was exposed.');
-    }, 900);
+    }, delay);
     return;
   }
 
   if (rightAtDoor() && !state.rightDoorClosed) {
+    const delay = getBreachDelay('right');
     lossTimeout = setTimeout(() => {
       lose('The right side was left open.', 'An enemy reached the right entrance while it was exposed.');
-    }, 900);
+    }, delay);
   }
 }
 
@@ -223,6 +264,9 @@ function startLoops() {
     }
 
     state.power = clamp(state.power - getUsage() * 0.42, 0, 100);
+    if (state.cameraOpen) state.mothAggro = clamp(state.mothAggro + 0.03, 0, enemyTraits.Moth.aggroMax);
+    else state.mothAggro = clamp(state.mothAggro - 0.05, 0, enemyTraits.Moth.aggroMax);
+
     if (state.power <= 0) {
       state.leftDoorClosed = false;
       state.rightDoorClosed = false;
@@ -246,11 +290,13 @@ function startLoops() {
       const current = state.positions[name];
       const path = routes[name];
       const idx = path.indexOf(current);
-      const canMove = Math.random() < state.aiLevels[name];
+      const canMove = Math.random() < getMoveChance(name, current);
       if (!canMove) continue;
 
       if (current === 'office') {
-        state.positions[name] = (name === 'Rust' || name === 'Grin') ? 'hallL' : 'hallR';
+        if (name === 'Rust') state.positions[name] = 'hallL';
+        else if (name === 'Moth') state.positions[name] = 'hallR';
+        else state.positions[name] = Math.random() < 0.5 ? 'hallL' : 'hallR';
         continue;
       }
 
@@ -283,7 +329,9 @@ function updateThreatList() {
     const left = document.createElement('span');
     left.textContent = name;
     const right = document.createElement('span');
-    right.textContent = state.cameraOpen ? pos.toUpperCase() : 'UNKNOWN';
+    if (!state.cameraOpen) right.textContent = 'UNKNOWN';
+    else if (name === 'Grin' && state.currentCam !== pos) right.textContent = 'UNSTABLE';
+    else right.textContent = pos.toUpperCase();
     right.style.fontFamily = 'monospace';
     right.className = 'muted';
     row.appendChild(left);
@@ -490,6 +538,9 @@ $('rightDoorBtn').addEventListener('click', () => {
 $('cameraBtn').addEventListener('click', () => {
   if (state.power <= 0 || state.gameState !== 'playing') return;
   state.cameraOpen = !state.cameraOpen;
+  if (state.cameraOpen) {
+    state.mothAggro = clamp(state.mothAggro + 0.08, 0, enemyTraits.Moth.aggroMax);
+  }
   setBriefStatus(state.cameraOpen ? 'Camera tablet raised.' : 'Camera tablet lowered.');
   renderScreen();
   updateUI();
@@ -497,7 +548,7 @@ $('cameraBtn').addEventListener('click', () => {
 
 $('restartBtn').addEventListener('click', () => {
   endPanel.style.display = 'none';
-  resetGame();
+  showMenu('title');
 });
 
 $('startGameBtn').addEventListener('click', startGame);
