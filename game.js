@@ -41,6 +41,9 @@ const camGrid = $('camGrid');
 const endPanel = $('endPanel');
 const endTitle = $('endTitle');
 const endDesc = $('endDesc');
+const menuOverlay = $('menuOverlay');
+const titleScreen = $('titleScreen');
+const howToScreen = $('howToScreen');
 
 function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
@@ -80,13 +83,8 @@ function createCamButtons() {
   }
 }
 
-function resetGame() {
-  clearInterval(secondTimer);
-  clearInterval(moveTimer);
-  clearTimeout(lossTimeout);
-  clearTimeout(statusTimeout);
-
-  state = {
+function createBaseState(gameState = 'title') {
+  return {
     power: 100,
     minutesElapsed: 0,
     leftDoorClosed: false,
@@ -95,15 +93,47 @@ function resetGame() {
     currentCam: 'stage',
     positions: { Rust: 'stage', Moth: 'stage', Grin: 'storage' },
     aiLevels: { Rust: 0.24, Moth: 0.18, Grin: 0.14 },
-    statusText: 'Shift started. Keep power usage under control.',
-    gameState: 'playing',
+    statusText: gameState === 'playing'
+      ? 'Shift started. Keep power usage under control.'
+      : 'Review the rules, then start the shift.',
+    gameState,
     tick: 0,
   };
+}
+
+function resetGame() {
+  clearInterval(secondTimer);
+  clearInterval(moveTimer);
+  clearTimeout(lossTimeout);
+  clearTimeout(statusTimeout);
+
+  state = createBaseState('playing');
 
   createCamButtons();
   updateUI();
   renderScreen();
   startLoops();
+}
+
+function showMenu(screenName) {
+  if (!state || state.gameState === 'playing') {
+    state = createBaseState(screenName);
+  } else {
+    state.gameState = screenName;
+    state.statusText = 'Review the rules, then start the shift.';
+  }
+
+  clearInterval(secondTimer);
+  clearInterval(moveTimer);
+  clearTimeout(lossTimeout);
+  clearTimeout(statusTimeout);
+  endPanel.style.display = 'none';
+  titleScreen.classList.toggle('hidden', screenName !== 'title');
+  howToScreen.classList.toggle('hidden', screenName !== 'howto');
+  menuOverlay.classList.remove('hidden');
+  createCamButtons();
+  renderScreen();
+  updateUI();
 }
 
 function getUsage() {
@@ -119,6 +149,8 @@ function rightAtDoor() {
 }
 
 function getHint() {
+  if (state.gameState === 'title') return 'Press START when you are ready.';
+  if (state.gameState === 'howto') return 'Read the rules, then begin the shift.';
   if (state.power <= 15) return 'Power critical. Stop wasting energy.';
   if (leftAtDoor() && !state.leftDoorClosed) return 'Left corridor danger.';
   if (rightAtDoor() && !state.rightDoorClosed) return 'Right corridor danger.';
@@ -237,6 +269,7 @@ function updateButtons() {
   $('leftDoorBtn').disabled = !playable;
   $('rightDoorBtn').disabled = !playable;
   $('cameraBtn').disabled = !playable;
+  $('restartBtn').disabled = !playable;
   document.querySelectorAll('.cam-btn').forEach(btn => {
     btn.disabled = !playable || !state.cameraOpen;
   });
@@ -427,6 +460,13 @@ function renderScreen() {
   screen.innerHTML = '';
   if (state.cameraOpen) renderCamera();
   else renderOffice();
+  screen.appendChild(menuOverlay);
+}
+
+function startGame() {
+  menuOverlay.classList.add('hidden');
+  endPanel.style.display = 'none';
+  resetGame();
 }
 
 $('leftDoorBtn').addEventListener('click', () => {
@@ -460,4 +500,9 @@ $('restartBtn').addEventListener('click', () => {
   resetGame();
 });
 
-resetGame();
+$('startGameBtn').addEventListener('click', startGame);
+$('startFromHowToBtn').addEventListener('click', startGame);
+$('showHowToBtn').addEventListener('click', () => showMenu('howto'));
+$('backToTitleBtn').addEventListener('click', () => showMenu('title'));
+
+showMenu('title');

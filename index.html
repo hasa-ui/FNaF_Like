@@ -21,7 +21,37 @@
       </div>
 
       <div class="panel screen-box">
-        <div class="screen" id="screen"></div>
+        <div class="screen" id="screen">
+          <div class="menu-overlay" id="menuOverlay">
+            <div class="menu-panel" id="titleScreen">
+              <div class="eyebrow">Night Shift Survival</div>
+              <div class="menu-title">Survive The Graveyard Shift</div>
+              <div class="menu-copy">
+                限られた電力の中で監視、ドア、防衛を切り替えながら 6 AM まで持ちこたえてください。
+              </div>
+              <div class="menu-actions">
+                <button id="startGameBtn">Start</button>
+                <button id="showHowToBtn" class="ghost-btn">How To Play</button>
+              </div>
+            </div>
+
+            <div class="menu-panel howto-panel hidden" id="howToScreen">
+              <div class="eyebrow">How To Play</div>
+              <div class="menu-title small-title">Rules Of The Shift</div>
+              <div class="howto-list">
+                <div class="howto-item"><strong>生存条件</strong><span>12 AM から 6 AM までオフィスを守り切ると勝利です。</span></div>
+                <div class="howto-item"><strong>ドア</strong><span>左右ドアを閉めると侵入を防げますが、その間は電力消費が増えます。</span></div>
+                <div class="howto-item"><strong>カメラ</strong><span>タブレットを上げると敵位置を確認できます。見続けると電力が減ります。</span></div>
+                <div class="howto-item"><strong>電力</strong><span>0% になるとドアとカメラが使えず、オフィスが無防備になります。</span></div>
+                <div class="howto-item"><strong>基本対処</strong><span>入口付近の気配を見たら対応する側だけ閉め、危険が去ったら開けて節電します。</span></div>
+              </div>
+              <div class="menu-actions">
+                <button id="backToTitleBtn" class="ghost-btn">Back</button>
+                <button id="startFromHowToBtn">Start</button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="hud-grid">
