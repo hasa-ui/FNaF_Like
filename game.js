@@ -61,6 +61,8 @@ const TEXT = {
       start: '開始',
       howto: '遊び方',
       back: '戻る',
+      audioOn: '音声オン',
+      audioOff: '音声オフ',
       restart: 'シフトを再開',
       raiseCameras: 'モニターを上げる',
       lowerCameras: 'モニターを下げる',
@@ -177,6 +179,8 @@ const TEXT = {
       start: 'Start',
       howto: 'How To Play',
       back: 'Back',
+      audioOn: 'Audio On',
+      audioOff: 'Audio Off',
       restart: 'Restart Shift',
       raiseCameras: 'Raise Monitor',
       lowerCameras: 'Lower Monitor',
@@ -261,6 +265,10 @@ let lossTimeout = null;
 let statusTimeout = null;
 let cameraTransitionTimeout = null;
 let jumpscareTimeout = null;
+let cameraToggleTimeout = null;
+let audioCtx = null;
+let audioMuted = false;
+let ambientNodes = null;
 
 const $ = (id) => document.getElementById(id);
 const screen = $('screen');
@@ -283,6 +291,7 @@ const howToScreen = $('howToScreen');
 const cameraTransition = $('cameraTransition');
 const jumpscareLayer = $('jumpscareLayer');
 const languageBtn = $('languageBtn');
+const audioBtn = $('audioBtn');
 
 function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
@@ -341,7 +350,12 @@ function applyLanguage() {
   $('backToTitleBtn').textContent = t('buttons.back');
   $('startFromHowToBtn').textContent = t('buttons.start');
   languageBtn.textContent = currentLanguage === 'ja' ? 'English' : '日本語';
+  audioBtn.textContent = audioMuted ? t('buttons.audioOff') : t('buttons.audioOn');
   createCamButtons();
+  if (state.endTitleKey && endPanel.style.display === 'block') {
+    endTitle.textContent = t(state.endTitleKey);
+    endDesc.textContent = t(state.endDescKey);
+  }
   renderScreen();
   updateUI();
 }
@@ -403,6 +417,9 @@ function createBaseState(gameState = 'title') {
     statusArgs: {},
     mothAggro: 0,
     inputLockedUntil: 0,
+    endTitleKey: '',
+    endDescKey: '',
+    powerOutagePlayed: false,
     gameState,
     tick: 0,
   };
@@ -416,6 +433,7 @@ function clearTimers() {
   clearTimeout(statusTimeout);
   clearTimeout(cameraTransitionTimeout);
   clearTimeout(jumpscareTimeout);
+  clearTimeout(cameraToggleTimeout);
 }
 
 function resetGame() {
@@ -432,6 +450,7 @@ function resetGame() {
 
 function showMenu(screenName) {
   clearTimers();
+  stopAmbient();
   state = createBaseState(screenName);
   endPanel.style.display = 'none';
   titleScreen.classList.toggle('hidden', screenName !== 'title');
@@ -469,8 +488,92 @@ function animateCameraTransition() {
   }, 340);
 }
 
+function ensureAudio() {
+  const AudioCtor = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtor) return null;
+  if (!audioCtx) audioCtx = new AudioCtor();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+function playTone({ frequency, duration = 0.12, type = 'sine', gain = 0.03, slideTo = null }) {
+  if (audioMuted) return;
+  const ctx = ensureAudio();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const amp = ctx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(frequency, now);
+  if (slideTo !== null) osc.frequency.linearRampToValueAtTime(slideTo, now + duration);
+  amp.gain.setValueAtTime(0.0001, now);
+  amp.gain.exponentialRampToValueAtTime(gain, now + 0.02);
+  amp.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+  osc.connect(amp);
+  amp.connect(ctx.destination);
+  osc.start(now);
+  osc.stop(now + duration + 0.02);
+}
+
+function stopAmbient() {
+  if (!ambientNodes) return;
+  ambientNodes.osc1.stop();
+  ambientNodes.osc2.stop();
+  ambientNodes = null;
+}
+
+function startAmbient() {
+  if (audioMuted || ambientNodes) return;
+  const ctx = ensureAudio();
+  if (!ctx) return;
+  const osc1 = ctx.createOscillator();
+  const osc2 = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc1.type = 'sine';
+  osc2.type = 'triangle';
+  osc1.frequency.value = 52;
+  osc2.frequency.value = 78;
+  gain.gain.value = 0.008;
+  osc1.connect(gain);
+  osc2.connect(gain);
+  gain.connect(ctx.destination);
+  osc1.start();
+  osc2.start();
+  ambientNodes = { osc1, osc2, gain };
+}
+
+function playSfx(name) {
+  switch (name) {
+    case 'cameraUp':
+      playTone({ frequency: 220, slideTo: 600, duration: 0.14, type: 'sawtooth', gain: 0.03 });
+      break;
+    case 'cameraDown':
+      playTone({ frequency: 640, slideTo: 200, duration: 0.14, type: 'square', gain: 0.025 });
+      break;
+    case 'door':
+      playTone({ frequency: 110, slideTo: 85, duration: 0.18, type: 'square', gain: 0.045 });
+      break;
+    case 'threat':
+      playTone({ frequency: 820, slideTo: 620, duration: 0.1, type: 'triangle', gain: 0.02 });
+      break;
+    case 'outage':
+      playTone({ frequency: 180, slideTo: 70, duration: 0.45, type: 'sawtooth', gain: 0.03 });
+      break;
+    case 'jumpscare':
+      playTone({ frequency: 90, slideTo: 40, duration: 0.55, type: 'sawtooth', gain: 0.05 });
+      playTone({ frequency: 1280, slideTo: 340, duration: 0.2, type: 'square', gain: 0.018 });
+      break;
+    case 'win':
+      playTone({ frequency: 520, slideTo: 780, duration: 0.22, type: 'triangle', gain: 0.03 });
+      break;
+    default:
+      break;
+  }
+}
+
 function triggerJumpscare(callback) {
   clearTimeout(jumpscareTimeout);
+  playSfx('jumpscare');
   jumpscareLayer.innerHTML = '';
   const face = document.createElement('div');
   face.className = 'jumpscare-face';
@@ -542,8 +645,11 @@ function lose(reasonKey, descKey) {
   if (state.gameState !== 'playing') return;
   state.gameState = 'lose';
   setStatus(reasonKey);
+  stopAmbient();
   triggerJumpscare(() => {
     endPanel.style.display = 'block';
+    state.endTitleKey = 'end.loseTitle';
+    state.endDescKey = descKey;
     endTitle.textContent = t('end.loseTitle');
     endTitle.className = 'end-title red';
     endDesc.textContent = t(descKey);
@@ -558,9 +664,13 @@ function win() {
   state.gameState = 'win';
   setStatus('status.win');
   endPanel.style.display = 'block';
+  state.endTitleKey = 'end.winTitle';
+  state.endDescKey = 'end.winDesc';
   endTitle.textContent = t('end.winTitle');
   endTitle.className = 'end-title green';
   endDesc.textContent = t('end.winDesc');
+  playSfx('win');
+  stopAmbient();
   updateButtons();
   renderScreen();
   updateUI();
@@ -613,6 +723,10 @@ function startLoops() {
       state.rightDoorClosed = false;
       state.cameraOpen = false;
       setStatus('status.powerOutage');
+      if (!state.powerOutagePlayed) {
+        playSfx('outage');
+        state.powerOutagePlayed = true;
+      }
     }
 
     scheduleThreatCheck();
@@ -622,6 +736,7 @@ function startLoops() {
 
   moveTimer = setInterval(() => {
     if (state.gameState !== 'playing') return;
+    const previous = { ...state.positions };
 
     state.aiLevels.Rust = clamp(state.aiLevels.Rust + 0.015, 0.2, 0.92);
     state.aiLevels.Moth = clamp(state.aiLevels.Moth + 0.013, 0.15, 0.9);
@@ -644,6 +759,11 @@ function startLoops() {
       if (idx === path.length - 1) state.positions[name] = 'office';
       else state.positions[name] = path[idx + 1];
     }
+
+    const approached = Object.entries(state.positions).some(([name, pos]) => {
+      return (pos === 'hallL' || pos === 'hallR') && previous[name] !== pos;
+    });
+    if (approached) playSfx('threat');
 
     scheduleThreatCheck();
     renderScreen();
@@ -864,12 +984,15 @@ function renderScreen() {
 function startGame() {
   menuOverlay.classList.add('hidden');
   endPanel.style.display = 'none';
+  ensureAudio();
+  startAmbient();
   resetGame();
 }
 
 $('leftDoorBtn').addEventListener('click', () => {
   if (state.power <= 0 || state.gameState !== 'playing' || state.cameraOpen || isInputLocked()) return;
   state.leftDoorClosed = !state.leftDoorClosed;
+  playSfx('door');
   setBriefStatus(state.leftDoorClosed ? 'status.leftClosed' : 'status.leftOpened');
   scheduleThreatCheck();
   renderScreen();
@@ -879,6 +1002,7 @@ $('leftDoorBtn').addEventListener('click', () => {
 $('rightDoorBtn').addEventListener('click', () => {
   if (state.power <= 0 || state.gameState !== 'playing' || state.cameraOpen || isInputLocked()) return;
   state.rightDoorClosed = !state.rightDoorClosed;
+  playSfx('door');
   setBriefStatus(state.rightDoorClosed ? 'status.rightClosed' : 'status.rightOpened');
   scheduleThreatCheck();
   renderScreen();
@@ -890,7 +1014,9 @@ $('cameraBtn').addEventListener('click', () => {
   const nextOpen = !state.cameraOpen;
   lockInputs(340);
   animateCameraTransition();
-  setTimeout(() => {
+  playSfx(nextOpen ? 'cameraUp' : 'cameraDown');
+  cameraToggleTimeout = setTimeout(() => {
+    if (state.gameState !== 'playing') return;
     state.cameraOpen = nextOpen;
     if (state.cameraOpen) {
       state.mothAggro = clamp(state.mothAggro + 0.08, 0, enemyTraits.Moth.aggroMax);
@@ -904,6 +1030,8 @@ $('cameraBtn').addEventListener('click', () => {
 $('restartBtn').addEventListener('click', () => {
   if (state.gameState === 'title' || state.gameState === 'howto' || isInputLocked()) return;
   menuOverlay.classList.add('hidden');
+  ensureAudio();
+  startAmbient();
   resetGame();
 });
 
@@ -913,6 +1041,12 @@ $('showHowToBtn').addEventListener('click', () => showMenu('howto'));
 $('backToTitleBtn').addEventListener('click', () => showMenu('title'));
 languageBtn.addEventListener('click', () => {
   currentLanguage = currentLanguage === 'ja' ? 'en' : 'ja';
+  applyLanguage();
+});
+audioBtn.addEventListener('click', () => {
+  audioMuted = !audioMuted;
+  if (audioMuted) stopAmbient();
+  else if (state.gameState === 'playing') startAmbient();
   applyLanguage();
 });
 
