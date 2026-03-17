@@ -11,22 +11,27 @@
     <div>
       <div class="panel topbar">
         <div>
-          <div class="eyebrow">Night Shift Survival</div>
-          <div class="title">Hold out until 6 AM</div>
+          <div class="eyebrow" id="brandEyebrow">Night Shift Survival</div>
+          <div class="title" id="gameTitle">Hold out until 6 AM</div>
         </div>
-        <div class="clock">
-          <div class="eyebrow">Time</div>
+        <div class="topbar-actions">
+          <button id="languageBtn" class="ghost-btn small-btn">日本語</button>
+          <div class="clock">
+            <div class="eyebrow" id="timeLabel">Time</div>
           <div class="time" id="clock">12 AM</div>
+          </div>
         </div>
       </div>
 
       <div class="panel screen-box">
         <div class="screen" id="screen">
+          <div id="cameraTransition" class="camera-transition hidden"></div>
+          <div id="jumpscareLayer" class="jumpscare-layer hidden"></div>
           <div class="menu-overlay" id="menuOverlay">
             <div class="menu-panel" id="titleScreen">
-              <div class="eyebrow">Night Shift Survival</div>
-              <div class="menu-title">Survive The Graveyard Shift</div>
-              <div class="menu-copy">
+              <div class="eyebrow" id="menuEyebrow">Night Shift Survival</div>
+              <div class="menu-title" id="menuTitle">Survive The Graveyard Shift</div>
+              <div class="menu-copy" id="menuCopy">
                 限られた電力の中で監視、ドア、防衛を切り替えながら 6 AM まで持ちこたえてください。
               </div>
               <div class="menu-actions">
@@ -36,14 +41,14 @@
             </div>
 
             <div class="menu-panel howto-panel hidden" id="howToScreen">
-              <div class="eyebrow">How To Play</div>
-              <div class="menu-title small-title">Rules Of The Shift</div>
+              <div class="eyebrow" id="howToEyebrow">How To Play</div>
+              <div class="menu-title small-title" id="howToTitle">Rules Of The Shift</div>
               <div class="howto-list">
-                <div class="howto-item"><strong>生存条件</strong><span>12 AM から 6 AM までオフィスを守り切ると勝利です。</span></div>
-                <div class="howto-item"><strong>ドア</strong><span>左右ドアを閉めると侵入を防げますが、その間は電力消費が増えます。</span></div>
-                <div class="howto-item"><strong>カメラ</strong><span>タブレットを上げると敵位置を確認できます。見続けると電力が減ります。</span></div>
-                <div class="howto-item"><strong>電力</strong><span>0% になるとドアとカメラが使えず、オフィスが無防備になります。</span></div>
-                <div class="howto-item"><strong>基本対処</strong><span>入口付近の気配を見たら対応する側だけ閉め、危険が去ったら開けて節電します。</span></div>
+                <div class="howto-item"><strong id="howToSurviveTitle">生存条件</strong><span id="howToSurviveBody">12 AM から 6 AM までオフィスを守り切ると勝利です。</span></div>
+                <div class="howto-item"><strong id="howToDoorTitle">ドア</strong><span id="howToDoorBody">左右ドアを閉めると侵入を防げますが、その間は電力消費が増えます。</span></div>
+                <div class="howto-item"><strong id="howToCameraTitle">カメラ</strong><span id="howToCameraBody">タブレットを上げると敵位置を確認できます。見続けると電力が減ります。</span></div>
+                <div class="howto-item"><strong id="howToPowerTitle">電力</strong><span id="howToPowerBody">0% になるとドアとカメラが使えず、オフィスが無防備になります。</span></div>
+                <div class="howto-item"><strong id="howToReactTitle">基本対処</strong><span id="howToReactBody">入口付近の気配を見たら対応する側だけ閉め、危険が去ったら開けて節電します。</span></div>
               </div>
               <div class="menu-actions">
                 <button id="backToTitleBtn" class="ghost-btn">Back</button>
@@ -56,20 +61,20 @@
 
       <div class="hud-grid">
         <div class="panel card">
-          <div class="card-title">Power</div>
+          <div class="card-title" id="powerCardTitle">Power</div>
           <div class="big" id="powerText">100%</div>
           <div class="meter"><div id="powerBar"></div></div>
           <div class="small" id="usageText">Usage: 1 bar</div>
         </div>
 
         <div class="panel card">
-          <div class="card-title">Doors</div>
-          <div class="row"><span>Left</span><span id="leftDoorState" class="muted">Open</span></div>
-          <div class="row"><span>Right</span><span id="rightDoorState" class="muted">Open</span></div>
+          <div class="card-title" id="doorsCardTitle">Doors</div>
+          <div class="row"><span id="leftDoorLabel">Left</span><span id="leftDoorState" class="muted">Open</span></div>
+          <div class="row"><span id="rightDoorLabel">Right</span><span id="rightDoorState" class="muted">Open</span></div>
         </div>
 
         <div class="panel card">
-          <div class="card-title">Status</div>
+          <div class="card-title" id="statusCardTitle">Status</div>
           <div class="status-line" id="statusText">Shift started. Keep power usage under control.</div>
           <div class="small" id="hintText">No immediate breach detected.</div>
         </div>
@@ -78,7 +83,7 @@
 
     <div class="side-col">
       <div class="panel card">
-        <div class="card-title">Controls</div>
+        <div class="card-title" id="controlsCardTitle">Controls</div>
         <div class="btn-grid">
           <button id="leftDoorBtn">Close Left</button>
           <button id="rightDoorBtn">Close Right</button>
@@ -88,15 +93,15 @@
       </div>
 
       <div class="panel card">
-        <div class="card-title">Camera Map</div>
+        <div class="card-title" id="cameraMapCardTitle">Camera Map</div>
         <div class="cam-grid" id="camGrid"></div>
-        <div class="small">Cameras only work while the tablet is raised.</div>
+        <div class="small" id="cameraMapHint">Cameras only work while the tablet is raised.</div>
       </div>
 
       <div class="panel card">
-        <div class="card-title">Threat Readout</div>
+        <div class="card-title" id="threatCardTitle">Threat Readout</div>
         <div id="threatList"></div>
-        <div class="small">これは試作版なので敵位置を見えるようにしています。難化したいならここは消すべきです。</div>
+        <div class="small" id="threatCardHint">これは試作版なので敵位置を見えるようにしています。難化したいならここは消すべきです。</div>
       </div>
 
       <div id="endPanel" class="panel card" style="display:none;">
